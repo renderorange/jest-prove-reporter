@@ -1,0 +1,12 @@
+{
+    "name": "@renderorange/jest-prove-reporter",
+    "version": "1.0.0",
+    "description": "Jest reporter that produces output similar to Perl's prove harness",
+    "main": "index.js",
+    "keywords": ["jest", "reporter", "tap", "prove", "perl"],
+    "license": "MIT",
+    "peerDependencies": {
+        "jest": ">=29.0.0",
+        "jest-tap-reporter": ">=1.9.0"
+    }
+}
