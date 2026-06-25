@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: "Version bump type"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - custom
+      custom_version:
+        description: "Custom version (only used if type is 'custom')"
+        required: false
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run lint check
+        run: npm run lint:check
+
+      - name: Determine version
+        id: version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+
+          if [ "${{ github.event.inputs.version_type }}" == "custom" ]; then
+              NEW_VERSION="${{ github.event.inputs.custom_version }}"
+          else
+              NEW_VERSION=$(node -p "
+                  const v = '${CURRENT_VERSION}'.split('.');
+                  const type = '${{ github.event.inputs.version_type }}';
+                  if (type === 'major') {
+                      v[0] = parseInt(v[0]) + 1;
+                      v[1] = 0;
+                      v[2] = 0;
+                  } else if (type === 'minor') {
+                      v[1] = parseInt(v[1]) + 1;
+                      v[2] = 0;
+                  } else {
+                      v[2] = parseInt(v[2]) + 1;
+                  }
+                  v.join('.');
+              ")
+          fi
+
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+          echo "New version: $NEW_VERSION"
+
+      - name: Validate version
+        run: |
+          if [ -z "${{ steps.version.outputs.new_version }}" ]; then
+              echo "Error: New version is empty"
+              exit 1
+          fi
+
+          if [ "${{ steps.version.outputs.current_version }}" == "${{ steps.version.outputs.new_version }}" ]; then
+              echo "Error: New version is the same as current version"
+              exit 1
+          fi
+
+      - name: Update package.json version
+        run: |
+          node -e "
+              const fs = require('fs');
+              const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+              pkg.version = '${{ steps.version.outputs.new_version }}';
+              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 4) + '\n');
+              console.log('Updated package.json to version', pkg.version);
+          "
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit changes
+        run: |
+          git add package.json
+          git commit -m "chore(release): v${{ steps.version.outputs.new_version }}"
+
+      - name: Push to main
+        run: git push origin main
+
+      - name: Create and push tag
+        run: |
+          git tag -a "v${{ steps.version.outputs.new_version }}" -m "Release v${{ steps.version.outputs.new_version }}"
+          git push origin "v${{ steps.version.outputs.new_version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ steps.version.outputs.new_version }}"
+          name: "v${{ steps.version.outputs.new_version }}"
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
