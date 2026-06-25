@@ -1,0 +1,7 @@
+__tests__/
+tmp/
+coverage/
+node_modules/
+.github/
+.eslintrc.*
+eslint.config.js

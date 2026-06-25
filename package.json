@@ -2,11 +2,41 @@
     "name": "@renderorange/jest-prove-reporter",
     "version": "1.0.0",
     "description": "Jest reporter that produces output similar to Perl's prove harness",
-    "main": "index.js",
-    "keywords": ["jest", "reporter", "tap", "prove", "perl"],
     "license": "MIT",
+    "author": "Blaine Motsinger <blaine@renderorange.com>",
+    "main": "index.js",
+    "files": [
+        "index.js",
+        "LICENSE",
+        "README.md"
+    ],
+    "keywords": ["jest", "reporter", "tap", "prove", "perl"],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/renderorange/jest-prove-reporter.git"
+    },
+    "bugs": {
+        "url": "https://github.com/renderorange/jest-prove-reporter/issues"
+    },
+    "homepage": "https://github.com/renderorange/jest-prove-reporter#readme",
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "test:coverage": "jest --coverage",
+        "lint": "node node_modules/eslint/bin/eslint.js . --fix",
+        "lint:check": "node node_modules/eslint/bin/eslint.js ."
+    },
     "peerDependencies": {
         "jest": ">=29.0.0",
         "jest-tap-reporter": ">=1.9.0"
+    },
+    "devDependencies": {
+        "@stylistic/eslint-plugin": "^3.0.0",
+        "eslint": "^9.0.0",
+        "jest": "^29.7.0",
+        "jest-tap-reporter": "^1.9.0"
     }
 }

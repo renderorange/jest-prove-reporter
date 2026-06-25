@@ -4,11 +4,14 @@ const TapReporter = require("jest-tap-reporter");
 const fs = require("fs");
 const path = require("path");
 
-function find_test_files(dir) {
+const IGNORE_DIRS = new Set(["node_modules", ".git"]);
+
+function find_test_files (dir) {
     const files = [];
     try {
         const entries = fs.readdirSync(dir, { withFileTypes: true });
         for (const entry of entries) {
+            if (entry.isDirectory() && IGNORE_DIRS.has(entry.name)) continue;
             const full = path.join(dir, entry.name);
             if (entry.isDirectory()) {
                 files.push(...find_test_files(full));
@@ -23,10 +26,14 @@ function find_test_files(dir) {
 }
 
 class ProveReporter {
-    constructor(globalConfig, options) {
+    constructor (globalConfig, options) {
         this._globalConfig = globalConfig;
         this._options = options || {};
-        this._verbose = !!process.env.VERBOSE;
+        this._verbose = this._options.verbose !== undefined
+            ? this._options.verbose
+            : (globalConfig.verbose !== undefined
+                ? globalConfig.verbose
+                : !!process.env.VERBOSE);
         this._results = [];
         this._started = false;
         this._totalTime = 0;
@@ -39,7 +46,7 @@ class ProveReporter {
         }
     }
 
-    _compute_max_name_length(roots) {
+    _compute_max_name_length (roots) {
         let max = 0;
         for (const root of roots) {
             for (const name of find_test_files(root)) {
@@ -49,13 +56,13 @@ class ProveReporter {
         return max > 0 ? max : 30;
     }
 
-    onRunStart(results, options) {
+    onRunStart (results, options) {
         if (this._tap) {
             this._tap.onRunStart(results, options || {});
         }
     }
 
-    onTestResult(test, testResult) {
+    onTestResult (test, testResult) {
         if (!this._started) {
             this._started = true;
         }
@@ -66,7 +73,8 @@ class ProveReporter {
         }
 
         const testPath = test.path;
-        const name = testPath.split("/").pop();
+        const name = testPath.split("/")
+            .pop();
         const passed = testResult.numFailingTests === 0;
         const duration = testResult.perfStats ? testResult.perfStats.runtime : 0;
 
@@ -80,14 +88,14 @@ class ProveReporter {
         process.stdout.write(name + " " + dots + " " + status + "  " + time + "\n");
     }
 
-    _formatTime(ms) {
+    _formatTime (ms) {
         if (ms >= 1000) {
             return (ms / 1000).toFixed(1) + " s";
         }
         return Math.round(ms) + " ms";
     }
 
-    onRunComplete(contexts, results) {
+    onRunComplete (contexts, results) {
         if (this._tap) {
             this._tap.onRunComplete(contexts, results);
             return;
