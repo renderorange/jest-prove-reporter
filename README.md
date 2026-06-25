@@ -62,6 +62,6 @@ The reporter accepts a verbose option. Priority is: reporter option → Jest's g
 }
 ```
 
-License
+## License
 
 MIT
