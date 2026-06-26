@@ -14,10 +14,16 @@ Compact mode (default):
 foo.test.js ............... ok  500 ms
 bar.test.js ............... ok  1.5 s
 fail.test.js .............. not ok  200 ms
+#   Failed test: should add numbers
+#       Error: Expected 5 to equal 4
+#   Failed test: Edge cases > should handle edge case
+#       Error: Expected true to be false
 
 Test Summary Report
 -------------------
 fail.test.js (Wstat: 1)
+  Failed test: should add numbers
+  Failed test: Edge cases > should handle edge case
 Files=3, Tests=4, 2.2 s
 Result: FAIL
 ```
