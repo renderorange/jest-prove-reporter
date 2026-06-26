@@ -48,34 +48,27 @@ jobs:
       - name: Run lint check
         run: npm run lint:check
 
-      - name: Determine version
+      - name: Determine new version
         id: version
         run: |
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          CURRENT_VERSION="${LATEST_TAG#v}"
 
           if [ "${{ github.event.inputs.version_type }}" == "custom" ]; then
               NEW_VERSION="${{ github.event.inputs.custom_version }}"
           else
               NEW_VERSION=$(node -p "
                   const v = '${CURRENT_VERSION}'.split('.');
-                  const type = '${{ github.event.inputs.version_type }}';
-                  if (type === 'major') {
-                      v[0] = parseInt(v[0]) + 1;
-                      v[1] = 0;
-                      v[2] = 0;
-                  } else if (type === 'minor') {
-                      v[1] = parseInt(v[1]) + 1;
-                      v[2] = 0;
-                  } else {
-                      v[2] = parseInt(v[2]) + 1;
-                  }
-                  v.join('.');
+                  const t = '${{ github.event.inputs.version_type }}';
+                  if (t === 'major') [parseInt(v[0])+1, 0, 0].join('.');
+                  else if (t === 'minor') [v[0], parseInt(v[1])+1, 0].join('.');
+                  else [v[0], v[1], parseInt(v[2])+1].join('.');
               ")
           fi
 
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "Current version: $CURRENT_VERSION"
+          echo "Latest tag: $LATEST_TAG"
           echo "New version: $NEW_VERSION"
 
       - name: Validate version
@@ -84,9 +77,12 @@ jobs:
               echo "Error: New version is empty"
               exit 1
           fi
-
           if [ "${{ steps.version.outputs.current_version }}" == "${{ steps.version.outputs.new_version }}" ]; then
               echo "Error: New version is the same as current version"
+              exit 1
+          fi
+          if git rev-parse "v${{ steps.version.outputs.new_version }}" >/dev/null 2>&1; then
+              echo "Error: Tag v${{ steps.version.outputs.new_version }} already exists"
               exit 1
           fi
 
@@ -97,7 +93,6 @@ jobs:
               const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
               pkg.version = '${{ steps.version.outputs.new_version }}';
               fs.writeFileSync('package.json', JSON.stringify(pkg, null, 4) + '\n');
-              console.log('Updated package.json to version', pkg.version);
           "
 
       - name: Configure git
@@ -108,18 +103,22 @@ jobs:
       - name: Commit changes
         run: |
           git add package.json
-          git commit -m "chore(release): v${{ steps.version.outputs.new_version }}"
-
-      - name: Push to main
-        run: git push origin main
+          if ! git diff --cached --quiet; then
+              git commit -m "chore(release): v${{ steps.version.outputs.new_version }}"
+          fi
 
       - name: Create and push tag
         run: |
           git tag -a "v${{ steps.version.outputs.new_version }}" -m "Release v${{ steps.version.outputs.new_version }}"
-          git push origin "v${{ steps.version.outputs.new_version }}"
+
+      - name: Push to main
+        run: git push origin main
+
+      - name: Push tag
+        run: git push origin "v${{ steps.version.outputs.new_version }}"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ steps.version.outputs.new_version }}"
           name: "v${{ steps.version.outputs.new_version }}"
