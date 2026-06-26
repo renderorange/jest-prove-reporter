@@ -62,6 +62,23 @@ class ProveReporter {
         }
     }
 
+    _failure_details (failures) {
+        const lines = [];
+        for (const f of failures) {
+            const fullName = f.ancestorTitles && f.ancestorTitles.length > 0
+                ? f.ancestorTitles.join(" > ") + " > " + f.title
+                : f.title;
+            lines.push("#   Failed test: " + fullName + "\n");
+            if (f.failureMessages && f.failureMessages.length > 0) {
+                for (const msg of f.failureMessages) {
+                    const firstLine = msg.split("\n")[0];
+                    lines.push("#       " + firstLine + "\n");
+                }
+            }
+        }
+        return lines;
+    }
+
     onTestResult (test, testResult) {
         if (!this._started) {
             this._started = true;
@@ -78,7 +95,8 @@ class ProveReporter {
         const passed = testResult.numFailingTests === 0;
         const duration = testResult.perfStats ? testResult.perfStats.runtime : 0;
 
-        this._results.push({ name, passed, duration });
+        const failures = passed ? [] : (testResult.testResults || []).filter((r) => r.status === "failed");
+        this._results.push({ name, passed, duration, failures });
         this._totalTime += duration;
 
         const pad = this._maxNameLength + 2;
@@ -86,6 +104,12 @@ class ProveReporter {
         const status = passed ? "ok" : "not ok";
         const time = this._formatTime(duration);
         process.stdout.write(name + " " + dots + " " + status + "  " + time + "\n");
+
+        if (!passed && failures.length > 0) {
+            for (const line of this._failure_details(failures)) {
+                process.stdout.write(line);
+            }
+        }
     }
 
     _formatTime (ms) {
@@ -110,6 +134,14 @@ class ProveReporter {
             process.stdout.write("-------------------\n");
             for (const r of failed) {
                 process.stdout.write(r.name + " (Wstat: 1)\n");
+                if (r.failures && r.failures.length > 0) {
+                    for (const f of r.failures) {
+                        const fullName = f.ancestorTitles && f.ancestorTitles.length > 0
+                            ? f.ancestorTitles.join(" > ") + " > " + f.title
+                            : f.title;
+                        process.stdout.write("  Failed test: " + fullName + "\n");
+                    }
+                }
             }
         }
 

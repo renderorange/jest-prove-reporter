@@ -242,6 +242,144 @@ describe("ProveReporter", () => {
                 .toContain("0 ms");
             mock.restore();
         });
+
+        it("outputs failure diagnostics after not ok line", () => {
+            const mock = mock_stdout();
+            const reporter = new ProveReporter({ roots: [] }, {});
+            const test = { path: "/foo/fail.test.js" };
+            const testResult = {
+                numFailingTests: 1,
+                perfStats: { runtime: 200 },
+                testResults: [
+                    {
+                        title: "should add numbers",
+                        ancestorTitles: [],
+                        status: "failed",
+                        failureMessages: ["Error: Expected 5 to equal 4\n    at file.js:12"],
+                        failureDetails: [],
+                    },
+                    {
+                        title: "should handle edge case",
+                        ancestorTitles: ["Edge cases"],
+                        status: "failed",
+                        failureMessages: ["Error: Expected true to be false\n    at edge.js:5"],
+                        failureDetails: [],
+                    },
+                ],
+            };
+            reporter.onTestResult(test, testResult);
+            const output = mock.calls.join("");
+            expect(output)
+                .toContain("not ok  200 ms\n");
+            expect(output)
+                .toContain("#   Failed test: should add numbers");
+            expect(output)
+                .toContain("#       Error: Expected 5 to equal 4");
+            expect(output)
+                .toContain("#   Failed test: Edge cases > should handle edge case");
+            expect(output)
+                .toContain("#       Error: Expected true to be false");
+            mock.restore();
+        });
+
+        it("does not output failure diagnostics for passing tests", () => {
+            const mock = mock_stdout();
+            const reporter = new ProveReporter({ roots: [] }, {});
+            const test = { path: "/foo/pass.test.js" };
+            const testResult = {
+                numFailingTests: 0,
+                perfStats: { runtime: 100 },
+                testResults: [
+                    { title: "works", ancestorTitles: [], status: "passed" },
+                ],
+            };
+            reporter.onTestResult(test, testResult);
+            const output = mock.calls.join("");
+            expect(output)
+                .not.toContain("#");
+            mock.restore();
+        });
+    });
+
+    describe("_failure_details", () => {
+        it("formats failure details with # prefix", () => {
+            const reporter = new ProveReporter({ roots: [] }, {});
+            const failures = [
+                {
+                    title: "should add",
+                    ancestorTitles: [],
+                    status: "failed",
+                    failureMessages: ["Error: Expected 5 to equal 4\n    at file.js:12"],
+                },
+                {
+                    title: "should subtract",
+                    ancestorTitles: ["Math"],
+                    status: "failed",
+                    failureMessages: ["AssertionError: Expected 2 to equal 3\n    at math.js:8"],
+                },
+            ];
+            const lines = reporter._failure_details(failures);
+            expect(lines[0])
+                .toBe("#   Failed test: should add\n");
+            expect(lines[1])
+                .toBe("#       Error: Expected 5 to equal 4\n");
+            expect(lines[2])
+                .toBe("#   Failed test: Math > should subtract\n");
+            expect(lines[3])
+                .toBe("#       AssertionError: Expected 2 to equal 3\n");
+        });
+
+        it("handles missing ancestorTitles gracefully", () => {
+            const reporter = new ProveReporter({ roots: [] }, {});
+            const failures = [
+                {
+                    title: "plain test",
+                    status: "failed",
+                    failureMessages: [],
+                },
+            ];
+            const lines = reporter._failure_details(failures);
+            expect(lines[0])
+                .toBe("#   Failed test: plain test\n");
+        });
+
+        it("handles missing failureMessages gracefully", () => {
+            const reporter = new ProveReporter({ roots: [] }, {});
+            const failures = [
+                {
+                    title: "no details",
+                    ancestorTitles: [],
+                    status: "failed",
+                },
+            ];
+            const lines = reporter._failure_details(failures);
+            expect(lines[0])
+                .toBe("#   Failed test: no details\n");
+            expect(lines.length)
+                .toBe(1);
+        });
+
+        it("handles multiple failure messages per test", () => {
+            const reporter = new ProveReporter({ roots: [] }, {});
+            const failures = [
+                {
+                    title: "multi error",
+                    ancestorTitles: [],
+                    status: "failed",
+                    failureMessages: [
+                        "Error: First failure\n    at a.js:1",
+                        "Error: Second failure\n    at b.js:2",
+                    ],
+                },
+            ];
+            const lines = reporter._failure_details(failures);
+            expect(lines[0])
+                .toBe("#   Failed test: multi error\n");
+            expect(lines[1])
+                .toBe("#       Error: First failure\n");
+            expect(lines[2])
+                .toBe("#       Error: Second failure\n");
+        });
     });
 
     describe("_formatTime", () => {
@@ -324,6 +462,42 @@ describe("ProveReporter", () => {
                 .toContain("fail2.test.js (Wstat: 1)");
             expect(output)
                 .toContain("FAIL");
+            mock.restore();
+        });
+
+        it("lists failed test names in summary when failure details available", () => {
+            const mock = mock_stdout();
+            const reporter = new ProveReporter({ roots: [] }, {});
+            const test = { path: "/foo/fail.test.js" };
+            const testResult = {
+                numFailingTests: 2,
+                perfStats: { runtime: 200 },
+                testResults: [
+                    {
+                        title: "should add",
+                        ancestorTitles: [],
+                        status: "failed",
+                        failureMessages: [],
+                        failureDetails: [],
+                    },
+                    {
+                        title: "should subtract",
+                        ancestorTitles: ["Math"],
+                        status: "failed",
+                        failureMessages: [],
+                        failureDetails: [],
+                    },
+                ],
+            };
+            reporter.onTestResult(test, testResult);
+            reporter.onRunComplete({}, { numPassedTests: 0 });
+            const output = mock.calls.join("");
+            expect(output)
+                .toContain("fail.test.js (Wstat: 1)");
+            expect(output)
+                .toContain("  Failed test: should add");
+            expect(output)
+                .toContain("  Failed test: Math > should subtract");
             mock.restore();
         });
 
