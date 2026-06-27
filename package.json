@@ -1,6 +1,6 @@
 {
     "name": "@renderorange/jest-prove-reporter",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "description": "Jest reporter that produces output similar to Perl's prove harness",
     "license": "MIT",
     "author": "Blaine Motsinger <blaine@renderorange.com>",
@@ -10,7 +10,13 @@
         "LICENSE",
         "README.md"
     ],
-    "keywords": ["jest", "reporter", "tap", "prove", "perl"],
+    "keywords": [
+        "jest",
+        "reporter",
+        "tap",
+        "prove",
+        "perl"
+    ],
     "repository": {
         "type": "git",
         "url": "git+https://github.com/renderorange/jest-prove-reporter.git"
